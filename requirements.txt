@@ -1,0 +1,6 @@
+click
+pandas
+pyspark
+findspark
+isodate
+requests

@@ -1,0 +1,15 @@
+{
+  "webhook"  : {"path": "https://discord.com/api/webhooks/834903224410439751/mEhxBKfl8oxsm3Z-9Igt4vFUyxaWqoR4RNLtAcxR7oF3UA0FamXZFCXa1n_OXffSTOh4"},
+  "extract"  : {"path": "https://s3-eu-west-1.amazonaws.com/dwh-test-resources/recipes.json",
+                "table": "recipes"},
+  "transform" : {},
+  "load"     : {"database": "hellofresh_takehome",
+                "table": "recipes",
+                "path": "user/hive/warehouse/hellofresh_takehome.db/recipes",
+                "partitions": {"difficulty": "string"}
+                },
+  "impala"     : {"impala_host": "localhost",
+                  "database": "hellofresh_takehome",
+                  "table": "recipes"
+                 }
+}
