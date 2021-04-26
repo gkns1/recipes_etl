@@ -72,7 +72,10 @@ class Executor(object):
 
 
 def duration_minutes_udf(s):
-    return int(isodate.parse_duration(s).seconds) / 60
+    if s == '':
+        return 0
+    else:
+        return int(isodate.parse_duration(s).seconds) / 60
 
 
 class Extract(object):
