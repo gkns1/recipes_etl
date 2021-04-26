@@ -1,6 +1,6 @@
 import unittest
-from hellofresh_takehome.etl import *
-from hellofresh_takehome import utils
+from recipes_etl.etl import *
+from recipes_etl import utils
 import json
 
 
@@ -16,13 +16,13 @@ class SparkETLTests(unittest.TestCase):
                 "extract": {"path": "data/test_data.json",
                             "table": "recipes"},
                 "transform": {},
-                "load": {"database": "hellofresh_takehome",
+                "load": {"database": "recipesdb",
                          "table": "recipes",
-                         "path": "user/hive/warehouse/hellofresh_takehome.db/recipes",
+                         "path": "user/hive/warehouse/recipesdb.db/recipes",
                          "partitions": {"difficulty": "string"}
                          },
                 "impala": {"impala_host": "localhost",
-                           "database": "hellofresh_takehome",
+                           "database": "recipesdb",
                            "table": "recipes"
                            }
             }"""
@@ -43,13 +43,13 @@ class SparkETLTests(unittest.TestCase):
                 "extract": {"path": "data/test_data.json",
                             "table": "recipes"},
                 "transform": {},
-                "load": {"database": "hellofresh_takehome",
+                "load": {"database": "recipesdb",
                          "table": "recipes",
-                         "path": "user/hive/warehouse/hellofresh_takehome.db/recipes",
+                         "path": "user/hive/warehouse/recipesdb.db/recipes",
                          "partitions": {"difficulty": "string"}
                          },
                 "impala": {"impala_host": "localhost",
-                           "database": "hellofresh_takehome",
+                           "database": "recipesdb",
                            "table": "recipes"
                            }
             }"""

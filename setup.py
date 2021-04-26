@@ -13,25 +13,26 @@ requirements = [
 ]
 
 test_requirements = [
-    'unittest'
+    'unittest',
+    'json'
 ]
 
 setup(
-    name='hellofresh_takehome',
+    name='recipes_etl',
     version='0.0.1',
     description="",
     author="Kamil Gusowski",
     author_email='kamil.gusowski@gmail.com',
-    url='https://github.com/gkns1/hellofresh_takehome',
+    url='https://github.com/gkns1/recipes_etl',
     packages=[
-        'hellofresh_takehome',
+        'recipes_etl',
     ],
-    package_dir={'hellofresh_takehome': 'hellofresh_takehome'},
+    package_dir={'recipes_etl': 'recipes_etl'},
     include_package_data=True,
     install_requires=requirements,
     license="MIT license",
     zip_safe=False,
-    keywords='hellofresh takehome',
+    keywords='recipes etl spark impala',
     test_suite='tests',
     tests_require=test_requirements
 )

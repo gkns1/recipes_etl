@@ -1,9 +1,10 @@
 import isodate
 from pyspark.sql.functions import *
-from hellofresh_takehome.utils import Handler
-from hellofresh_takehome import utils
+from recipes_etl.utils import Handler
+from recipes_etl import utils
 import requests
 import json
+
 
 class Executor(object):
     def __init__(self, run, tasks, mode, config=None, config_manual=None):
@@ -100,6 +101,7 @@ class Extract(object):
                         file.close()
             else:
                 recipes_data = self.path
+            #   todo: add a schema to make the load much faster 
             extractDF = spark.read.json(recipes_data)
             handler.info('Data extracted!')
             extractDF.createOrReplaceTempView(self.table)  # so it's queryable
@@ -121,8 +123,8 @@ class Transform(object):
         if df is None:
             print("The extract data has to be supplied!")
             exit()
-        handler.info("Filtering for beef.")
-        df_filtered = df.filter(lower("ingredients").contains("beef"))
+        handler.info("Filtering...")
+        # df_filtered = df.filter(lower("ingredients").contains("tofu"))
 
         # prepTime and cookTime uses ISO 8601 Duration.
         # We have to get rid of "PT" and convert M to minutes, Hours to 60 minutes.
@@ -134,9 +136,9 @@ class Transform(object):
         # spark.udf.register('duration_udf', duration_minutes_udf)
         duration_udf = udf(duration_minutes_udf)
         handler.info("Parsing durations.")
-        df_transformed = df_filtered \
-            .withColumn("prepTime", duration_udf(df_filtered.prepTime).cast("int")) \
-            .withColumn("cookTime", duration_udf(df_filtered.cookTime).cast("int"))
+        df_transformed = df \
+            .withColumn("prepTime", duration_udf(df.prepTime).cast("int")) \
+            .withColumn("cookTime", duration_udf(df.cookTime).cast("int"))
         """
         ingestDF_filtered \
             .withColumn('prepTime', regexp_replace('prepTime', 'PT', '')) \
@@ -157,30 +159,48 @@ class Transform(object):
 
 
 class Load(object):
-    def __init__(self, config = utils.load_config(), env = 'local'):
+    def __init__(self, config=utils.load_config(), env='local'):
         self.db = config['load'].get('database')
         self.table = config['load'].get('table')
         self.path = config['load'].get('path')
         self.partition_config = config['load'].get('partitions')
-        self.partition_cols = ",".join(self.partition_config)
+        self.partition_cols = ','.join(self.partition_config)
         self.env = env
+
+    def generate_table_sql(self, df):
+        df_schema = json.loads(df.schema.json())
+        cols = ',\n'.join([fld['name'] + ' ' + fld['type'] \
+                           for fld in df_schema['fields'] \
+                           if fld not in self.partition_config.items()])
+        expression = f"""CREATE EXTERNAL TABLE IF NOT EXISTS {self.db}.{self.table}
+                    ({cols})
+                    PARTITIONED BY ({self.partition_cols})
+                    STORED AS PARQUET
+                    LOCATION {self.path}
+                    """
+        return expression
 
     def execute(self, spark, handler, df = None,):
         if self.env == 'local':
             (df
              .write
              .format('parquet')
-             .mode('append') #leaves the historical records in
+             .mode('append') # leaves the historical records in
              .partitionBy(self.partition_cols)
              .save(self.path))
 
         handler.info("Starting to load transformed DF...")
         if self.env == 'prod':
+            spark.sql(f"CREATE DATABASE IF NOT EXISTS {self.db}")
+            spark.sql(self.generate_table_sql(df))
+
             (df
              .write
              .format('parquet')
-             .mode('append') #leaves the historical records in
+             .mode('append') # leaves the historical records in
              .partitionBy(self.partition_cols)
              .save(self.path))
         handler.info("DF loaded successfully!")
         spark.stop()
+
+#todo: Add impala refresh and invalidate metadata?

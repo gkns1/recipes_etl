@@ -1,70 +1,8 @@
-"""
-Utils function.
-taken from https://github.com/hellofresh/spark-testing-base/blob/master/sparktestingbase/utils.py
-"""
-import sys
 import os
 import logging
 from pyspark.sql import SparkSession
 import json
-from glob import glob
 import requests
-
-
-def add_pyspark_path_if_needed():
-    """Add PySpark to the library path based on the value of SPARK_HOME if
-    pyspark is not already in our path"""
-    try:
-        from pyspark import context
-    except ImportError:
-        # We need to add PySpark, try findspark if we can but it has an
-        # undeclared IPython dep.
-        try:
-            import findspark
-            findspark.init()
-        except ImportError:
-            add_pyspark_path()
-
-
-def add_pyspark_path():
-    """Add PySpark to the library path based on the value of SPARK_HOME."""
-
-    try:
-        spark_home = os.environ['SPARK_HOME']
-
-        sys.path.append(os.path.join(spark_home, 'python'))
-        py4j_src_zip = glob(os.path.join(spark_home, 'python',
-                                         'lib', 'py4j-*-src.zip'))
-        if len(py4j_src_zip) == 0:
-            raise ValueError('py4j source archive not found in %s'
-                             % os.path.join(spark_home, 'python', 'lib'))
-        else:
-            py4j_src_zip = sorted(py4j_src_zip)[::-1]
-            sys.path.append(py4j_src_zip[0])
-    except KeyError:
-        print("""SPARK_HOME was not set. please set it. e.g.
-        SPARK_HOME='/home/...' ./bin/pyspark [program]""")
-        exit(-1)
-    except ValueError as e:
-        print(str(e))
-        exit(-1)
-
-
-def quiet_py4j():
-    logger = logging.getLogger('py4j')
-    logger.setLevel(logging.INFO)
-
-
-def quiet_logs(sc):
-    logger = sc._jvm.org.apache.log4j
-    logger.LogManager.getRootLogger().setLevel(logger.Level.ERROR)
-    logger.LogManager.getLogger("org").setLevel(logger.Level.ERROR)
-    logger.LogManager.getLogger("akka").setLevel(logger.Level.ERROR)
-
-
-"""
-Added by KG, not in the original code.
-"""
 
 
 def load_config(config=None, config_manual=None):
@@ -94,7 +32,7 @@ def load_config(config=None, config_manual=None):
     return config_dict
 
 
-def start_session(mode, app_name='hellofresh_th_etl', files=None):
+def start_session(mode, app_name='recipes_etl', files=None):
     # files are a placeholder in case we want to supply files to spark with --py-files
     spark = None  # to make the linter happy
     if files is None:
@@ -129,7 +67,6 @@ def start_session(mode, app_name='hellofresh_th_etl', files=None):
     elif mode == 'standalone':
         try:
             print("the current mode is standalone, trying to get or create a spark session.")
-            add_pyspark_path_if_needed()
             spark = SparkSession \
                 .builder \
                 .appName(app_name) \

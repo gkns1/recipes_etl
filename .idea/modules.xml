@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/hellofresh_takehome.iml" filepath="$PROJECT_DIR$/.idea/hellofresh_takehome.iml" />
+      <module fileurl="file://$PROJECT_DIR$/../recipes_etl/.idea/recipes_etl.iml" filepath="$PROJECT_DIR$/../recipes_etl/.idea/recipes_etl.iml" />
     </modules>
   </component>
 </project>

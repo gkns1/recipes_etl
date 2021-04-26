@@ -1,5 +1,5 @@
 import click
-from hellofresh_takehome.etl import *
+from recipes_etl.etl import *
 
 
 @click.command()
