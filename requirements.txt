@@ -1,5 +1,4 @@
 click
-pandas
 pyspark
 findspark
 isodate
