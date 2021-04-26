@@ -67,22 +67,29 @@ Added by KG, not in the original code.
 """
 
 
-def load_config(config=None, config_manual=''):
+def load_config(config=None, config_manual=None):
     config_dict = config
-    if config is None and config_manual == '':
+    if config is None and config_manual is None:
         root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         config = os.path.join(os.path.join(root_dir, 'config'), 'config.json')
         try:
-            with open(config) as config_file:
+            with open(config, 'r') as config_file:
                 config_dict = json.loads(config_file.read())
                 config_file.close()
         except Exception as e:
             print(e)
-    elif config_manual != '':
+    elif config_manual is not None:
         try:
             config_dict = json.loads(config_manual)
         except Exception as e:
             print("Can't load the config! {0}".format(e))
+    elif config is not None:
+        try:
+            with open(config, 'r') as config_file:
+                config_dict = json.loads(config_file.read())
+                config_file.close()
+        except Exception as e:
+            print(e)
 
     return config_dict
 
@@ -158,15 +165,19 @@ class Handler(object):
         if webhook is not None:
             # print("sending the message to discord webhook...")
             requests.post(webhook, message)
+        return "Discord message sent! {0}".format(message)
 
     def info(self, message):
         self.logger.info(message)
-        self._report_discord(message)
+
+        return self._report_discord(message)
 
     def warn(self, message):
-        self.logger.warn(message)
-        self._report_discord(message)
+        self.logger.warning(message)
+
+        return self._report_discord(message)
 
     def error(self, message):
         self.logger.error(message)
-        self._report_discord(message)
+
+        return self._report_discord(message)

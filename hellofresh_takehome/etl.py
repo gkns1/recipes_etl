@@ -2,7 +2,8 @@ import isodate
 from pyspark.sql.functions import *
 from hellofresh_takehome.utils import Handler
 from hellofresh_takehome import utils
-
+import requests
+import json
 
 class Executor(object):
     def __init__(self, run, tasks, mode, config=None, config_manual=None):
@@ -24,15 +25,11 @@ class Executor(object):
             self.handler.error("The only acceptable inputs are 'Extract', 'Transform', 'Load' and 'Pipeline'.")
 
         elif self.run == 'Pipeline':
-
             self.tasks = [Extract(), Transform(), Load()]
             for task in self.tasks:
                 try:
                     self.handler.info('Starting the {0}...'.format(str(task)))
-                    if isinstance(task, Extract):
-                        df = task.execute(self.spark, self.handler)
-                    else:
-                        task.execute(self.spark, self.handler, df)
+                    df = task.execute(self.spark, self.handler, df)
                     self.handler.info('{0} finished!'.format(str(task)))
                 except Exception as e:
                     self.handler.error(e)
@@ -43,7 +40,6 @@ class Executor(object):
             try:
                 self.handler.info('Starting the Extract...')
                 df = Extract().execute(self.spark, self.handler)
-                
                 self.handler.info('Extract finished!')
             except Exception as e:
                 self.handler.error(e)
@@ -75,25 +71,42 @@ class Executor(object):
         self.spark.stop()
 
 
+def duration_minutes_udf(s):
+    return int(isodate.parse_duration(s).seconds) / 60
+
+
 class Extract(object):
     def __init__(self, config=utils.load_config()):
         self.path = config['extract'].get('path')
         self.table = config['extract'].get('table')
 
-    def execute(self, spark, handler):
+    def execute(self, spark, handler, df=None):
         extractDF = None  # make the linter happy
         if self.path is None:
             self.path = "https://s3-eu-west-1.amazonaws.com/dwh-test-resources/recipes.json"
         try:
-            handler.info('Starting to extract data...')
-            extractDF = spark.read.json(self.path)
+            handler.info('Starting to extract data from {}'.format(self.path))
+            # the data uses utf-8 encoding
+            if self.path.startswith('http'):
+                request = requests.get(self.path)
+                if request.status_code == 200:
+                    request_data = request.text
+                    with open("data/data.json", 'w+') as file:
+                        file.write(request_data)
+                        recipes_data = 'data/data.json'
+                        file.close()
+            else:
+                recipes_data = self.path
+            extractDF = spark.read.json(recipes_data)
             handler.info('Data extracted!')
-            handler.info('Creating temp table')
-            handler.info('Table created.')
+            extractDF.createOrReplaceTempView(self.table)  # so it's queryable
+            handler.info('View created!')
         except Exception as e:
             handler.error(e)
+            spark.stop()
+            exit()
 
-        # add cleanup
+        # add cleanup if any
         return extractDF
 
 
@@ -103,7 +116,7 @@ class Transform(object):
 
     def execute(self, spark, handler, df):
         if df is None:
-            "The extract data has to be supplied!"
+            print("The extract data has to be supplied!")
             exit()
         handler.info("Filtering for beef.")
         df_filtered = df.filter(lower("ingredients").contains("beef"))
@@ -111,12 +124,16 @@ class Transform(object):
         # prepTime and cookTime uses ISO 8601 Duration.
         # We have to get rid of "PT" and convert M to minutes, Hours to 60 minutes.
         # We can use also use isodate's parse_duration to get timedelta in seconds.
-        handler.info("Registering UDF.")
-        spark.register('parse_duration', isodate.parse_duration())
+        # In this case we use duration_minutes_udf defined before this class
+        # UDFs can be slow, so using native functions might be better. needs testing
+
+        # handler.info("Registering UDF.")
+        # spark.udf.register('duration_udf', duration_minutes_udf)
+        duration_udf = udf(duration_minutes_udf)
         handler.info("Parsing durations.")
         df_transformed = df_filtered \
-        .withColumn('prepTime', isodate.parse_duration().seconds / 60) \
-        .withColumn('cookTime', isodate.parse_duration().seconds / 60)
+            .withColumn("prepTime", duration_udf(df_filtered.prepTime).cast("int")) \
+            .withColumn("cookTime", duration_udf(df_filtered.cookTime).cast("int"))
         """
         ingestDF_filtered \
             .withColumn('prepTime', regexp_replace('prepTime', 'PT', '')) \
@@ -128,11 +145,11 @@ class Transform(object):
             add eval to fields before calculating differences
         """
         handler.info("Adding difficulty.")
-        df_transformed.withColumn("difficulty", when(col("cookTime") + col("prepTime") > 60, "hard")
-            .when(col("cookTime") + col("prepTime").between(31,60), "medium")
+        df_transformed = df_transformed.withColumn("difficulty", when((col("cookTime") + col("prepTime")) > 60, "hard")
+            .when((col("cookTime") + col("prepTime")).between(31,60), "medium")
             .otherwise("easy"))
         handler.info("Adding date of execution.")
-        df_transformed.withColumn(col('date_of_execution'), current_date()).show()
+        df_transformed = df_transformed.withColumn('date_of_execution', current_date())
         return df_transformed
 
 
@@ -146,14 +163,21 @@ class Load(object):
         self.env = env
 
     def execute(self, spark, handler, df = None,):
-        if self.env == 'dev':
-            pass
+        if self.env == 'local':
+            (df
+             .write
+             .format('parquet')
+             .mode('append') #leaves the historical records in
+             .partitionBy(self.partition_cols)
+             .save(self.path))
 
         handler.info("Starting to load transformed DF...")
-        (df
-         .write
-         .format('parquet')
-         .mode('append') #leaves the historical records in
-         .partitionBy(self.partition_cols)
-         .save(self.path))
+        if self.env == 'prod':
+            (df
+             .write
+             .format('parquet')
+             .mode('append') #leaves the historical records in
+             .partitionBy(self.partition_cols)
+             .save(self.path))
         handler.info("DF loaded successfully!")
+        spark.stop()
