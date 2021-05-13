@@ -94,15 +94,15 @@ class Extract(object):
             if self.path.startswith('http'):
                 request = requests.get(self.path)
                 if request.status_code == 200:
+                    extractDF = spark.createDataFrame([json.loads(line) for line in request.iter_lines()])
                     request_data = request.text
                     with open("data/data.json", 'w+') as file:
                         file.write(request_data)
-                        recipes_data = 'data/data.json'
                         file.close()
             else:
                 recipes_data = self.path
             #   todo: add a schema to make the load much faster 
-            extractDF = spark.read.json(recipes_data)
+                extractDF = spark.read.json(recipes_data)
             handler.info('Data extracted!')
             extractDF.createOrReplaceTempView(self.table)  # so it's queryable
             handler.info('View created!')

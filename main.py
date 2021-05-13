@@ -1,7 +1,6 @@
 import click
 from recipes_etl.etl import *
 
-
 @click.command()
 @click.option('--run', default='Pipeline', help='Whether the pipeline or an individual task should be run')
 @click.option('--tasks', default=None, help='List of tasks to run')
@@ -11,7 +10,6 @@ from recipes_etl.etl import *
 def main(run, tasks, mode, config_manual, df):
     print("Selected options {0} {1} {2} {3} standalone".format(run, tasks, config_manual, df))
     executor = Executor(run, tasks, 'standalone', config_manual).execute(df)
-
 
 if __name__ == '__main__' or __name__ == '__file__':
     main()
